@@ -14,7 +14,7 @@ if [ ! -e ./CalibreLibrary ]; then
     exit 1
 fi
 
-if [ ! -e ./calibre ]; then
+if [ -e ./calibredb ]; then
     CALIBREDB=./calibredb
 else
     CALIBREDB=calibredb
@@ -42,29 +42,32 @@ shift 1
 	continue
     fi
     BASENAME=$(basename "$DIR" | tr -s " ")
-    NBR_GOOD=$(ls "$DIR"/*.{epub,mobi,cbz,azw,pdb,prc} 2>/dev/null | wc -l)
+    NBR_GOOD=$(ls ./HumbleBundleLibrary/"$DIR"/*.{epub,mobi,cbz,azw,pdb,prc} 2>/dev/null | wc -l)
     if [ "$NBR_GOOD" -ge "1" ]; then
 	echo "Adding book: $DIR"
-	$CALIBREDB --with-library ./CalibreLibrary/ --ignore "*.zip" --one-book-per-directory add "$DIR" "$@" &
+	$CALIBREDB --with-library ./CalibreLibrary/ --ignore "*.zip" --one-book-per-directory add ./HumbleBundleLibrary/"$DIR" "$@" &
 	WAIT=$!
     else
 	echo "Adding book: $DIR with title $BASENAME"
-	$CALIBREDB --with-library ./CalibreLibrary/ add --ignore "*.zip" --title "$BASENAME" --one-book-per-directory "$DIR" "$@" &
+	$CALIBREDB --with-library ./CalibreLibrary/ add --ignore "*.zip" --title "$BASENAME" --one-book-per-directory ./HumbleBundleLibrary/"$DIR" "$@" &
 	WAIT=$!
     fi
     wait "$WAIT"
     RETURN="$?"
     if [ "$RETURN" == "0" ]; then
 	echo "$DIR" >> ./humble_bundle_to_calibre_done.dat
-    fi
-    if [ "$STOP" == "1" ]; then
+    elif [ "$STOP" == "1" ]; then
 	wait "$WAIT"
+	RETURN="$?"
 	if [ "$RETURN" == "0" ]; then
 	    echo "$DIR" >> ./humble_bundle_to_calibre_done.dat
+	else
+	    echo "$DIR|$RETURN" >> ./humble_bundle_to_calibre_err.dat
 	fi
 	exit 0
+    else
+	echo "$DIR|$RETURN" >> ./humble_bundle_to_calibre_err.dat
     fi
     done
 )
 echo "All folders processed"
-
