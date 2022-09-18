@@ -14,6 +14,7 @@ echo "Look for empty dirs - investigate manually"
 rmlint --types "emptyfiles,emptydirs"  -o pretty:stdout ../HumbleBundleLibrary
 
 echo "Look for duplicated dirs"
-rmlint --types "dd" --merge-directories --honour-dir-layout -o progressbar -o sh:rmlint.sh -o pretty:stdout -o summary:stdout -o json:rmlint.json ../HumbleBundleLibrary
+rmlint --types "dd,df" --merge-directories --honour-dir-layout -o progressbar -o sh:rmlint-dd.sh -c sh:symlink -o pretty:stdout -o summary:stdout -o json:rmlint-dd.json ../HumbleBundleLibrary
 
-#rmlint "df,dd"
+echo "A script 'rmlint-dd.sh' has been created to remove and symlink duplicate directories."
+echo "Inspect it and run it."
