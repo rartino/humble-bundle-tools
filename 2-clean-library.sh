@@ -14,6 +14,6 @@ echo "Look for empty dirs - investigate manually"
 rmlint --types "emptyfiles,emptydirs"  -o pretty:stdout ../HumbleBundleLibrary
 
 echo "Look for duplicated dirs"
-rmlint --types "dd" -o progressbar -o sh:rmlint.sh -o pretty:stdout -o summary:stdout -o json:rmlint.json ../HumbleBundleLibrary
+rmlint --types "dd" --merge-directories --honour-dir-layout -o progressbar -o sh:rmlint.sh -o pretty:stdout -o summary:stdout -o json:rmlint.json ../HumbleBundleLibrary
 
 #rmlint "df,dd"

@@ -14,6 +14,12 @@ if [ ! -e ./CalibreLibrary ]; then
     exit 1
 fi
 
+if [ ! -e ./calibre ]; then
+    CALIBREDB=./calibredb
+else
+    CALIBREDB=calibredb
+fi
+
 STOP=0
 trap "STOP=1" SIGINT
 
@@ -39,11 +45,11 @@ shift 1
     NBR_GOOD=$(ls "$DIR"/*.{epub,mobi,cbz,azw,pdb,prc} 2>/dev/null | wc -l)
     if [ "$NBR_GOOD" -ge "1" ]; then
 	echo "Adding book: $DIR"
-	calibredb --with-library ./CalibreLibrary/ --ignore "*.zip" --one-book-per-directory add "$DIR" "$@" &
+	$CALIBREDB --with-library ./CalibreLibrary/ --ignore "*.zip" --one-book-per-directory add "$DIR" "$@" &
 	WAIT=$!
     else
 	echo "Adding book: $DIR with title $BASENAME"
-	calibredb --with-library ./CalibreLibrary/ add --ignore "*.zip" --title "$BASENAME" --one-book-per-directory "$DIR" "$@" &
+	$CALIBREDB --with-library ./CalibreLibrary/ add --ignore "*.zip" --title "$BASENAME" --one-book-per-directory "$DIR" "$@" &
 	WAIT=$!
     fi
     wait "$WAIT"
