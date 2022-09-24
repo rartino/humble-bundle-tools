@@ -65,7 +65,6 @@ fi
     elif grep -q "RPG" <<< "$BUNDLENAME"; then
 	LIBRARY="./CalibreLibraryRPG"
     fi
-    LIBRARY="./CalibreLibrary"    
     
     echo "== BUNDLE: $BUNDLENAME | PRODUCT: $PRODUCTNAME | LIB: $LIBRARY"
     
