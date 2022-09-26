@@ -1,5 +1,8 @@
 #!/bin/bash
 
+#mkdir -p calibre-prefs
+#export CALIBRE_CONFIG_DIRECTORY="$(cd calibre-prefs; pwd -P)"
+
 #set -e
 
 if [ ! -e ./HumbleBundleLibrary ]; then
@@ -16,6 +19,9 @@ if [ ! -e ./CalibreLibrary -o ! -e ./CalibreLibraryComics -o ! -e ./CalibreLibra
     echo
     exit 1
 fi
+
+touch ./humble_bundle_to_calibre_done.dat
+touch ./humble_bundle_to_calibre_err.dat
 
 if [ -e ./calibredb ]; then
     CALIBREDB=./calibredb
@@ -51,41 +57,77 @@ fi
   #trap "STOP=1" SIGINT
   while read DIR; do
 
+    ORIGDIR=$DIR
     PRODUCTNAME=$(basename "$DIR" | tr -s " ")
     PARENT=$(dirname "$DIR")
     BUNDLENAME=$(basename "$PARENT" | tr -s " ")
     if [ -L "./HumbleBundleLibrary/$DIR" ]; then
 	DIR=$(readlink "./HumbleBundleLibrary/$DIR")
 	DIR=${DIR#../}
-    fi
 
+	if [ ! -e ./HumbleBundleLibrary/"$DIR" ]; then
+	    RAWPRODUCTNAME=$(basename "$DIR")
+	    echo "HumbleBundleLibrary broken for:"
+	    echo "  './HumbleBundleLibrary/$ORIGDIR'"
+	    echo "Linked to non-existing:"
+	    echo "  './HumbleBundleLibrary/$DIR'"
+	    echo
+	    exit 0
+	fi
+    fi
+    
     LIBRARY="./CalibreLibrary"
     if grep -q "Comic" <<< "$BUNDLENAME"; then
 	LIBRARY="./CalibreLibraryComics"
+    elif grep -q "BOOM" <<< "$BUNDLENAME"; then
+	LIBRARY="./CalibreLibraryComics"	
     elif grep -q "RPG" <<< "$BUNDLENAME"; then
 	LIBRARY="./CalibreLibraryRPG"
     fi
     
-    echo "== BUNDLE: $BUNDLENAME | PRODUCT: $PRODUCTNAME | LIB: $LIBRARY"
+    echo "==== BUNDLE: $BUNDLENAME | PRODUCT: $PRODUCTNAME | LIB: $LIBRARY"
     
     if grep -q "^$DIR\$" ./humble_bundle_to_calibre_done.dat; then
-	echo "Already done"
+	echo "== Already done"
 	continue
     fi
 
     #NBR_GOOD=$(ls ./HumbleBundleLibrary/"$DIR"/*.{epub,mobi,cbz,azw,pdb,prc} 2>/dev/null | wc -l)
 
-    OUTPUT=$($CALIBREDB --with-library "$LIBRARY" add --ignore "*.zip" --title "$BUNDLENAME" --one-book-per-directory --tags "hb:${PRODUCTNAME// /_}" ./HumbleBundleLibrary/"$DIR" "$@" 2>&1)
+    OUTPUT=$($CALIBREDB --with-library "$LIBRARY" add --ignore "*.zip" --title "$BUNDLENAME" --one-book-per-directory ./HumbleBundleLibrary/"$DIR" "$@" 2> /tmp/err.out)
     RETURN="$?"
+    echo "*** CALIBRE ERROR ***"
+    cat /tmp/err.out
+    echo "*** CALIBRE OUTPUT ***"
     echo "$OUTPUT"
-    if grep -q "already exist in the database" <<< "$OUTPUT"; then
-	continue
+    echo "**********************"
+    echo "== RETURN CODE: $RETURN"
+    if grep -q "already exist in the database" /tmp/err.out ; then
+	EXISTING_TITLE=$(tail -n 1 /tmp/err.out | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+	echo "== Already exists in database with title: $EXISTING_TITLE"
+	ID=$($CALIBREDB --with-library "$LIBRARY" search "title:\"$EXISTING_TITLE\"")
+	echo "Search gave id: $ID"
+	if [[ "$ID" =~ ^[0-9]+$ ]]; then
+	    echo "Existing metadata for ID: $ID"
+	    $CALIBREDB --with-library "$LIBRARY" show_metadata "$ID"
+	    echo 
+	    echo "Consider:"
+	    echo   "$CALIBREDB --with-library \"$LIBRARY\" remove \"$ID\""
+	    echo
+	    echo "Or add the following dir to: ./humble_bundle_to_calibre_done.dat"
+	    echo "  $DIR"
+	    exit 0
+	else
+	    echo "== Could dont extract ID of duplicate."
+	    exit 0
+	fi
     fi
    
-    ID=$(echo "$OUTPUT" | sed 's/Added book ids: \(.*\)/\1/')
+    ID=$(echo "$OUTPUT" | sed -n 's/Added book ids: \([0-9]\+\)/\1/p')
     echo "Got ID: $ID"
-    if [ -z "$ID" ]; then
-	echo "Failed to extract id, perhaps something went wrong?"
+    if ! [[ "$ID" =~ ^[0-9]+$ ]]; then
+	echo "== Failed to extract id, perhaps something went wrong adding the book to the library?"
+	exit 0
 	continue
     else
 
@@ -131,11 +173,15 @@ fi
 	    TAGPREFIX=""
 	fi
 	echo "Updated metadata:"
-	$CALIBREDB --with-library "$LIBRARY" set_metadata "$ID" -f "identifiers:${IDENTIFIERS_PREFIX}hb:${PRODUCTNAME// /_}" -f "#source:Humble Bundle: ${BUNDLENAME} / ${PRODUCTNAME}" -f "title:$TITLE" -f "tags:$TAGPREFIX,Humble Bundle"
+	$CALIBREDB --with-library "$LIBRARY" set_metadata "$ID" -f "identifiers:${IDENTIFIERS_PREFIX}hb:${PRODUCTNAME// /_}" -f "#source:Humble Bundle: ${BUNDLENAME} / ${PRODUCTNAME}" -f "title:$TITLE" -f "tags:${TAGPREFIX}Humble Bundle"
 	RETURN3="$?"
     fi
     if [ "$RETURN" == "0" -a "$RETURN2" == "0" -a "$RETURN3" == "0" ]; then
 	echo "$DIR" >> ./humble_bundle_to_calibre_done.dat
+    else
+	echo "$DIR|$RETURN|$RETURN2|$RETURN3" >> ./humble_bundle_to_calibre_err.dat
+	echo "== Error handling book, aborting."
+	exit 0
     fi
     done
 )
