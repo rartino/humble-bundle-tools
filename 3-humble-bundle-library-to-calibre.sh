@@ -87,7 +87,7 @@ fi
     
     echo "==== BUNDLE: $BUNDLENAME | PRODUCT: $PRODUCTNAME | LIB: $LIBRARY"
     
-    if grep -q "^$DIR\$" ./humble_bundle_to_calibre_done.dat; then
+    if grep -qxF "$DIR" ./humble_bundle_to_calibre_done.dat; then
 	echo "== Already done"
 	continue
     fi
